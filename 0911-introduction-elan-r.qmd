@@ -1,0 +1,145 @@
+---
+title: "Introduction to working with ELAN files in R in R Studio"
+format: html
+execute:
+  echo: true
+---
+
+We will use the [`phonfieldwork`](https://docs.ropensci.org/phonfieldwork/) package to import (and maybe even export) ELAN `.eaf` files. This package is maintained and peer-reviewed as a part of the [rOpenSci](https://ropensci.org/).
+
+The ELAN functions are built upon the R package `FrElan` and the python package `pympi`.
+
+As the name suggests, phoneticfieldwork is primarily as a package for phonetic research, so has numerous functions for working with Praat textgrids, generating spectrograms, and creating stimuli.
+
+::: {.callout-important}
+Create a new folder for this assignment, giving it an appropriate name, such as `750g-[language]-corpus`, so for us, it is `750g-teop-corpus`. Move the DoReCo files you downloaded into this directory.
+
+Within this directory create a new R Project in R Studio as well as an R code file with a file name `0911-introduction-elan-r.R`. You will slowly build this R file by pasting the code below.
+:::
+
+```{r}
+#| label: setup
+#| output: false
+
+
+# If you do not already have the following packages installed, you will need to install them now.
+
+# install.packages("phonfieldwork")
+# install.packages("tidyverse")
+# install.packages("here")
+
+# Load required packages for ELAN file processing
+library(phonfieldwork)
+
+# Load for data wrangling
+library(tidyverse)
+
+# Load for consistent file paths
+library(here)
+
+# Define corpus directory
+corpus_dir <- here("doreco_teop1238_core_v2.0")
+```
+
+
+# Working with a single ELAN file
+
+## Importing a text with `phonfieldwork`
+Pick any text in the corpus. We chose `doreco_teop1238_Pur_05.eaf` for our text in the Teop corpus.
+
+```{r}
+#| label: import-text
+#| output: false
+
+# Import a specific ELAN file using phonfieldwork
+text_df <- eaf_to_df(here(corpus_dir, "doreco_teop1238_Pur_05.eaf"))
+
+# View the structure of the imported data
+str(text_df)
+
+# Display the first 20 rows
+head(text_df, 20)
+```
+
+## Calculating token frequency of words
+
+```{r}
+#| label: text-word-frequency
+
+# Simple word frequency calculation in a text
+text_word_freq <- text_df |>
+  filter(tier_type == "wd") |>
+  filter(!str_detect(content, "[<>]")) |>
+  count(content, sort = TRUE) |>
+  slice_head(n = 20)
+
+# Display the 20 most frequent words
+text_word_freq
+```
+
+## Plotting token frequency of words
+
+```{r}
+#| label: plot-text-word-freq
+
+# Create a bar plot of word frequencies
+text_word_freq |>
+  ggplot(aes(x = reorder(content, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "Words",
+       y = "Token frequency")
+```
+
+
+# Working with an ELAN corpus
+
+## Importing a corpus with `phonfieldwork`
+
+```{r}
+#| label: import-elan-files
+
+# Find all ELAN files in the corpus directory
+corpus_files <- list.files(corpus_dir, 
+                        pattern = "\\.eaf$", 
+                        full.names = TRUE)
+
+# Read all ELAN files into a single dataframe
+corpus <- corpus_files |>
+  map_dfr(eaf_to_df, .id = "file")
+
+# Filter the corpus for core morphosyntactic tier types
+corpus_filtered <- corpus |>
+  filter(tier_type %in% c("ref", "tx", "ft", "wd", "mb", "gl"))
+```
+
+
+## Calculating token frequency of words
+
+```{r}
+#| label: corpus-word-freq
+
+# Simple token word frequency in the corpus
+corpus_word_freq <- corpus_filtered |>
+  filter(tier_type == "wd") |>
+  filter(!str_detect(content, "[<>]")) |>
+  count(content, sort = TRUE) |>
+  slice_head(n = 20)
+
+# Display the 20 most frequent words
+corpus_word_freq
+```
+
+## Plotting token frequency of words
+
+```{r}
+#| label: plot-corpus-word-freq
+
+# Create a bar plot of token frequency of words in the corpus
+corpus_word_freq |>
+  ggplot(aes(x = reorder(content, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "Words",
+       y = "Token frequency")
+```
