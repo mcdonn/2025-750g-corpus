@@ -61,6 +61,20 @@ str(text_df)
 head(text_df, 20)
 ```
 
+## Preparing words, morphemes, and glosses
+
+```{r}
+#| label: words-morphs-glosses
+
+# Simple word frequency calculation in a text
+words_df <- text_df |>
+  filter(tier_type %in% c("wd", "mb", "gl")) |>
+  filter(!str_detect(content, "[<>*]"))
+
+# Display the 20 most frequent words
+head(words_df, 20)
+```
+
 ## Calculating token frequency of words
 
 ```{r}

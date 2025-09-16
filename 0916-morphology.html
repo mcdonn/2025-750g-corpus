@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.24">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Wrangling ELAN files to investigate morphology</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="0916-morphology_files/libs/clipboard/clipboard.min.js"></script>
+<script src="0916-morphology_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="0916-morphology_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="0916-morphology_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="0916-morphology_files/libs/quarto-html/popper.min.js"></script>
+<script src="0916-morphology_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="0916-morphology_files/libs/quarto-html/anchor.min.js"></script>
+<link href="0916-morphology_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="0916-morphology_files/libs/quarto-html/quarto-syntax-highlighting-dc55a5b9e770e841cd82e46aadbfb9b0.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="0916-morphology_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="0916-morphology_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="0916-morphology_files/libs/bootstrap/bootstrap-c62ef0501ae2f3adb684d0ab58cf61b7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Wrangling ELAN files to investigate morphology</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>We will build upon the R code we introduced in the last class <a href="">Introduction to working with ELAN files in R in R Studio</a> using <a href="https://docs.ropensci.org/phonfieldwork/"><code>phonfieldwork</code></a> package to import ELAN <code>.eaf</code> files.</p>
+<p>In this short exercise, we will first read in a single text, locate a fairly frequent affix, then output all of the roots (or bases) that combine with that affix. Then, we will read in the entire ELAN corpus and output all of the roots (or bases) that combine with the same frequent affix. We will then visualize this frequency with a plot.</p>
+<div class="callout callout-style-default callout-caution callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Caution
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>We have tried to create code that applies broadly to the DoReCo corpora. However, it was not possible to test this code on each individual DoReCo corpus, so there is a chance you may not be able to produce the desired output. If you encounter issues that you are not able to fix, we will try to help you adjust the code.</p>
+<p>If it is becomes too time consuming, we recommend you download the <a href="https://doreco.huma-num.fr/preview/languages/teop1238">DoReCo Teop Corpus</a> and move it to the same directory (i.e.&nbsp;folder) where this file is located.</p>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># If you do not already have the following packages installed, you will need to install them now. Note that we have added the package ggtext</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("phonfieldwork")</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("tidyverse")</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("here")</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("ggtext")</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Load required packages for ELAN file processing</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(phonfieldwork)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Load for data wrangling</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Load for consistent file paths</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(here)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Load for markdown text formatting in plots</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggtext)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Define corpus directory</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>corpus_dir <span class="ot">&lt;-</span> <span class="fu">here</span>(<span class="st">"doreco_teop1238_core_v2.0"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="working-with-a-single-elan-file" class="level1">
+<h1>Working with a single ELAN file</h1>
+<section id="importing-a-text-with-phonfieldwork" class="level2">
+<h2 class="anchored" data-anchor-id="importing-a-text-with-phonfieldwork">Importing a text with <code>phonfieldwork</code></h2>
+<p>Pick any text in the corpus. We chose <code>doreco_teop1238_Pur_05.eaf</code> for our text in the Teop corpus.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Import a specific ELAN file using phonfieldwork</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>text_df <span class="ot">&lt;-</span> <span class="fu">eaf_to_df</span>(<span class="fu">here</span>(corpus_dir, <span class="st">"doreco_teop1238_Pur_05.eaf"</span>))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># View the structure of the imported data</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(text_df)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Display the first 20 rows</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(text_df, <span class="dv">20</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="creating-a-word-deliminated-data-frame-for-the-text" class="level2">
+<h2 class="anchored" data-anchor-id="creating-a-word-deliminated-data-frame-for-the-text">Creating a word-deliminated data frame for the text</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create word_id that groups consecutive rows belonging to the same word</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>word_text_df <span class="ot">&lt;-</span> text_df <span class="sc">|&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tier_type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"wd"</span>,<span class="st">"mb"</span>,<span class="st">"gl"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">word_id =</span> <span class="fu">paste0</span>(<span class="st">"w"</span>, <span class="fu">cumsum</span>(tier_type <span class="sc">==</span> <span class="st">"wd"</span>)))</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Display word-morpheme-gloss structure</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>word_text_df <span class="sc">|&gt;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">8</span>, <span class="fu">last_col</span>()) <span class="sc">|&gt;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">26</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   tier id  content tier_name tier_type  id_ tier_ref event_local_id word_id
+1     4  1     &lt;p:&gt;    wd@Pur        wd  889  ref@Pur           a888      w1
+2     5  1     &lt;p:&gt;    mb@Pur        mb 1902   wd@Pur          a1901      w1
+3     7  1     &lt;p:&gt;    gl@Pur        gl 4079   mb@Pur          a4078      w1
+4     4  2        O    wd@Pur        wd  890  ref@Pur           a889      w2
+5     5  2        O    mb@Pur        mb 1903   wd@Pur          a1902      w2
+6     7  2  ART3.SG    gl@Pur        gl 4080   mb@Pur          a4079      w2
+7     4  3     &lt;p:&gt;    wd@Pur        wd  891  ref@Pur           a890      w3
+8     5  3     &lt;p:&gt;    mb@Pur        mb 1904   wd@Pur          a1903      w3
+9     7  3     &lt;p:&gt;    gl@Pur        gl 4081   mb@Pur          a4080      w3
+10    4  4   hutate    wd@Pur        wd  892  ref@Pur           a891      w4
+11    5  4   hutate    mb@Pur        mb 1905   wd@Pur          a1904      w4
+12    7  4    story    gl@Pur        gl 4082   mb@Pur          a4081      w4
+13    4  5       na    wd@Pur        wd  893  ref@Pur           a892      w5
+14    5  5       na    mb@Pur        mb 1906   wd@Pur          a1905      w5
+15    7  5 3SG.POSS    gl@Pur        gl 4083   mb@Pur          a4082      w5
+16    4  6     &lt;p:&gt;    wd@Pur        wd  894  ref@Pur           a893      w6
+17    5  6     &lt;p:&gt;    mb@Pur        mb 1907   wd@Pur          a1906      w6
+18    7  6     &lt;p:&gt;    gl@Pur        gl 4084   mb@Pur          a4083      w6
+19    4  7       to    wd@Pur        wd  895  ref@Pur           a894      w7
+20    5  7       to    mb@Pur        mb 1908   wd@Pur          a1907      w7
+21    7  7      REL    gl@Pur        gl 4085   mb@Pur          a4084      w7
+22    4  8 tapogoro    wd@Pur        wd  896  ref@Pur           a895      w8
+23    5  8      ta-    mb@Pur        mb 1909   wd@Pur          a1908      w8
+24    7  8   ACAUS-    gl@Pur        gl 4086   mb@Pur          a4085      w8
+25    5  9   pogoro    mb@Pur        mb 1910   wd@Pur          a1909      w8
+26    7  9  produce    gl@Pur        gl 4087   mb@Pur          a4086      w8</code></pre>
+</div>
+</div>
+</section>
+<section id="extracting-affix-gloss-pairs-with-frequency" class="level2">
+<h2 class="anchored" data-anchor-id="extracting-affix-gloss-pairs-with-frequency">Extracting affix gloss pairs with frequency</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Find affixes (e.g. morphemes containing hyphens) and assign to dataframe</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>affixes_text <span class="ot">&lt;-</span> word_text_df <span class="sc">|&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tier_type <span class="sc">==</span> <span class="st">"mb"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">str_detect</span>(content, <span class="st">"-"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="at">morpheme_id =</span> event_local_id, <span class="at">morpheme =</span> content)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Assign glosses to dataframe</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>glosses_text <span class="ot">&lt;-</span> word_text_df <span class="sc">|&gt;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tier_type <span class="sc">==</span> <span class="st">"gl"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dependent_on, <span class="at">gloss =</span> content)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Match each morpheme with its specific gloss</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>affixes_glosses_text <span class="ot">&lt;-</span> affixes_text <span class="sc">|&gt;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(glosses_text, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"morpheme_id"</span> <span class="ot">=</span> <span class="st">"dependent_on"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(morpheme, gloss)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Display affixes with glosses</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(affixes_glosses_text, <span class="dv">10</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   morpheme           gloss
+1       ta-          ACAUS-
+2       va-           MULT-
+3        e-              H-
+4      vaa-           CAUS-
+5     koma- stomach|inside-
+6      vaa-            ORD-
+7      vaa-            ORD-
+8       va-           MULT-
+9       va-           CAUS-
+10     vaa-           CAUS-</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate frequency of affix-gloss pairs</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>affix_text_freq <span class="ot">&lt;-</span> affixes_glosses_text <span class="sc">|&gt;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(morpheme, gloss, <span class="at">sort =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Display affix frequencies</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>affix_text_freq</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  morpheme           gloss n
+1     vaa-           CAUS- 9
+2       e-              H- 8
+3      va-           CAUS- 2
+4      va-           MULT- 2
+5     vaa-            ORD- 2
+6    koma- stomach|inside- 1
+7    sina-         mother- 1
+8      ta-          ACAUS- 1
+9    tama-         father- 1</code></pre>
+</div>
+</div>
+</section>
+<section id="extracting-the-roots-that-occur-with-a-frequent-affix" class="level2">
+<h2 class="anchored" data-anchor-id="extracting-the-roots-that-occur-with-a-frequent-affix">Extracting the roots that occur with a frequent affix</h2>
+<p>One of the most frequent affixes is the causative prefix <em>vaa-</em> ‘CAUS-’, so we will explore how many different roots (or bases) it attaches to. I define this affix below.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the frequent affix</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>freq_affix <span class="ot">&lt;-</span> <span class="st">"vaa-"</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>freq_gloss <span class="ot">&lt;-</span> <span class="st">"CAUS-"</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Find words that contain both the frequent affix and gloss defined above, remove the target morpheme and gloss, combine</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_text <span class="ot">&lt;-</span> word_text_df <span class="sc">|&gt;</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Find words that contain both the frequent affix and its gloss</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(word_id) <span class="sc">|&gt;</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">any</span>(content <span class="sc">==</span> freq_affix) <span class="sc">&amp;</span> <span class="fu">any</span>(content <span class="sc">==</span> freq_gloss))</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Summarize remaining morphemes and glosses</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_text_summary <span class="ot">&lt;-</span> affix_gloss_roots_text <span class="sc">|&gt;</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">all_morphemes =</span> <span class="fu">paste</span>(content[tier_type <span class="sc">==</span> <span class="st">"mb"</span>], <span class="at">collapse =</span> <span class="st">""</span>),</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">all_glosses =</span> <span class="fu">paste</span>(content[tier_type <span class="sc">==</span> <span class="st">"gl"</span>], <span class="at">collapse =</span> <span class="st">""</span>)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect the summary that contains the affix and gloss</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_text_summary</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 9 × 3
+  word_id all_morphemes all_glosses       
+  &lt;chr&gt;   &lt;chr&gt;         &lt;chr&gt;             
+1 w1003   vaa-moon      CAUS-woman        
+2 w212    vaa-masi      CAUS-low.tide.come
+3 w452    vaa-takaha    CAUS-dawn         
+4 w687    vaa-tavus     CAUS-come.out     
+5 w821    vaa-tavus     CAUS-come.out     
+6 w827    vaa-tavus     CAUS-come.out     
+7 w841    vaa-raka      CAUS-dry          
+8 w847    vaa-tavus     CAUS-come.out     
+9 w864    vaa-tavus     CAUS-come.out     </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove the affix and gloss so that only roots are listed</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_only_text <span class="ot">&lt;-</span> affix_gloss_roots_text <span class="sc">|&gt;</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(content <span class="sc">!=</span> freq_affix, content <span class="sc">!=</span> freq_gloss)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Summarize the morphemes and glosses as well as their frequencies </span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_only_text_summary <span class="ot">&lt;-</span> affix_gloss_roots_only_text <span class="sc">|&gt;</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">roots =</span> <span class="fu">paste</span>(content[tier_type <span class="sc">==</span> <span class="st">"mb"</span>], <span class="at">collapse =</span> <span class="st">""</span>),</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">glosses =</span> <span class="fu">paste</span>(content[tier_type <span class="sc">==</span> <span class="st">"gl"</span>], <span class="at">collapse =</span> <span class="st">""</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> <span class="fu">count</span>(roots, glosses, <span class="at">sort =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect the summary</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_only_text_summary</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 5 × 3
+  roots  glosses           n
+  &lt;chr&gt;  &lt;chr&gt;         &lt;int&gt;
+1 tavus  come.out          5
+2 masi   low.tide.come     1
+3 moon   woman             1
+4 raka   dry               1
+5 takaha dawn              1</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="working-with-an-elan-corpus" class="level1">
+<h1>Working with an ELAN corpus</h1>
+<p>Now let’s look at the same affix in the corpus.</p>
+<section id="importing-a-corpus-with-phonfieldwork" class="level2">
+<h2 class="anchored" data-anchor-id="importing-a-corpus-with-phonfieldwork">Importing a corpus with <code>phonfieldwork</code></h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Find all ELAN files in the corpus directory</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>corpus_files <span class="ot">&lt;-</span> <span class="fu">list.files</span>(corpus_dir, </span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>                        <span class="at">pattern =</span> <span class="st">"</span><span class="sc">\\</span><span class="st">.eaf$"</span>, </span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>                        <span class="at">full.names =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Read all ELAN files into a single dataframe</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>corpus <span class="ot">&lt;-</span> corpus_files <span class="sc">|&gt;</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(eaf_to_df, <span class="at">.id =</span> <span class="st">"file"</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter the corpus for core morphosyntactic tier types</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>corpus_df <span class="ot">&lt;-</span> corpus <span class="sc">|&gt;</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tier_type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"ref"</span>, <span class="st">"tx"</span>, <span class="st">"ft"</span>, <span class="st">"wd"</span>, <span class="st">"mb"</span>, <span class="st">"gl"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="creating-a-word-deliminated-data-frame-for-the-corpus" class="level2">
+<h2 class="anchored" data-anchor-id="creating-a-word-deliminated-data-frame-for-the-corpus">Creating a word-deliminated data frame for the corpus</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create word_id that groups consecutive rows belonging to the same word</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>word_corpus_df <span class="ot">&lt;-</span> corpus_df <span class="sc">|&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tier_type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"wd"</span>,<span class="st">"mb"</span>,<span class="st">"gl"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">word_id =</span> <span class="fu">paste0</span>(<span class="st">"w"</span>, <span class="fu">cumsum</span>(tier_type <span class="sc">==</span> <span class="st">"wd"</span>)))</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Display word-morpheme-gloss structure</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>word_corpus_df <span class="sc">|&gt;</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">8</span>, <span class="fu">last_col</span>()) <span class="sc">|&gt;</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">50</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   file tier id   content tier_name tier_type  id_ tier_ref word_id
+1     1    4  1      &lt;p:&gt;    wd@Asu        wd  829  ref@Asu      w1
+2     1    5  1      &lt;p:&gt;    mb@Asu        mb 1750   wd@Asu      w1
+3     1    6  1      &lt;p:&gt;    gl@Asu        gl 2764   mb@Asu      w1
+4     1    4  2      Peho    wd@Asu        wd  830  ref@Asu      w2
+5     1    5  2      Peho    mb@Asu        mb 1751   wd@Asu      w2
+6     1    6  2      ****    gl@Asu        gl 2765   mb@Asu      w2
+7     1    4  3      vuri    wd@Asu        wd  831  ref@Asu      w3
+8     1    5  3      vuri    mb@Asu        mb 1752   wd@Asu      w3
+9     1    6  3      ****    gl@Asu        gl 2766   mb@Asu      w3
+10    1    4  4      &lt;p:&gt;    wd@Asu        wd  832  ref@Asu      w4
+11    1    5  4      &lt;p:&gt;    mb@Asu        mb 1753   wd@Asu      w4
+12    1    6  4      &lt;p:&gt;    gl@Asu        gl 2767   mb@Asu      w4
+13    1    4  5      peho    wd@Asu        wd  833  ref@Asu      w5
+14    1    5  5      peho    mb@Asu        mb 1754   wd@Asu      w5
+15    1    6  5      ****    gl@Asu        gl 2768   mb@Asu      w5
+16    1    4  6      vuri    wd@Asu        wd  834  ref@Asu      w6
+17    1    5  6      vuri    mb@Asu        mb 1755   wd@Asu      w6
+18    1    6  6      ****    gl@Asu        gl 2769   mb@Asu      w6
+19    1    4  7  &lt;&lt;fp&gt;ee&gt;    wd@Asu        wd  835  ref@Asu      w7
+20    1    5  7      ****    mb@Asu        mb 1756   wd@Asu      w7
+21    1    6  7      ****    gl@Asu        gl 2770   mb@Asu      w7
+22    1    4  8      &lt;p:&gt;    wd@Asu        wd  836  ref@Asu      w8
+23    1    5  8      &lt;p:&gt;    mb@Asu        mb 1757   wd@Asu      w8
+24    1    6  8      &lt;p:&gt;    gl@Asu        gl 2771   mb@Asu      w8
+25    1    4  9         o    wd@Asu        wd  837  ref@Asu      w9
+26    1    5  9         o    mb@Asu        mb 1758   wd@Asu      w9
+27    1    6  9       ART    gl@Asu        gl 2772   mb@Asu      w9
+28    1    4 10    vahara    wd@Asu        wd  838  ref@Asu     w10
+29    1    5 10    vahara    mb@Asu        mb 1759   wd@Asu     w10
+30    1    6 10 little:PL    gl@Asu        gl 2773   mb@Asu     w10
+31    1    4 11     beiko    wd@Asu        wd  839  ref@Asu     w11
+32    1    5 11     beiko    mb@Asu        mb 1760   wd@Asu     w11
+33    1    6 11     child    gl@Asu        gl 2774   mb@Asu     w11
+34    1    4 12      &lt;p:&gt;    wd@Asu        wd  840  ref@Asu     w12
+35    1    5 12      &lt;p:&gt;    mb@Asu        mb 1761   wd@Asu     w12
+36    1    6 12      &lt;p:&gt;    gl@Asu        gl 2775   mb@Asu     w12
+37    1    4 13        na    wd@Asu        wd  841  ref@Asu     w13
+38    1    5 13        na    mb@Asu        mb 1762   wd@Asu     w13
+39    1    6 13       TAM    gl@Asu        gl 2776   mb@Asu     w13
+40    1    4 14    naonao    wd@Asu        wd  842  ref@Asu     w14
+41    1    5 14      nao~    mb@Asu        mb 1763   wd@Asu     w14
+42    1    6 14      RED~    gl@Asu        gl 2777   mb@Asu     w14
+43    1    5 15       nao    mb@Asu        mb 1764   wd@Asu     w14
+44    1    6 15        go    gl@Asu        gl 2778   mb@Asu     w14
+45    1    4 15      roho    wd@Asu        wd  843  ref@Asu     w15
+46    1    5 16      roho    mb@Asu        mb 1765   wd@Asu     w15
+47    1    6 16    before    gl@Asu        gl 2779   mb@Asu     w15
+48    1    4 16       tea    wd@Asu        wd  844  ref@Asu     w16
+49    1    5 17       tea    mb@Asu        mb 1766   wd@Asu     w16
+50    1    6 17     COMPL    gl@Asu        gl 2780   mb@Asu     w16</code></pre>
+</div>
+</div>
+</section>
+<section id="extracting-affix-gloss-pairs-with-frequency-1" class="level2">
+<h2 class="anchored" data-anchor-id="extracting-affix-gloss-pairs-with-frequency-1">Extracting affix gloss pairs with frequency</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Find affixes (e.g. morphemes containing hyphens) and assign to dataframe</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>affixes_corpus <span class="ot">&lt;-</span> word_corpus_df <span class="sc">|&gt;</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tier_type <span class="sc">==</span> <span class="st">"mb"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">str_detect</span>(content, <span class="st">"-"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(file, <span class="at">morpheme_id =</span> event_local_id, <span class="at">morpheme =</span> content)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Assign glosses to dataframe</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>glosses_corpus <span class="ot">&lt;-</span> word_corpus_df <span class="sc">|&gt;</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tier_type <span class="sc">==</span> <span class="st">"gl"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(file, dependent_on, <span class="at">gloss =</span> content)</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Match each morpheme with its specific gloss (within the same file)</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>affixes_glosses_corpus <span class="ot">&lt;-</span> affixes_corpus <span class="sc">|&gt;</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(glosses_corpus, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"file"</span> <span class="ot">=</span> <span class="st">"file"</span>, <span class="st">"morpheme_id"</span> <span class="ot">=</span> <span class="st">"dependent_on"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(morpheme, gloss)</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Display affixes with glosses</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(affixes_glosses_corpus, <span class="dv">20</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   morpheme  gloss
+1       va-   ADV-
+2     kuri-  hand-
+3      vaa-  CAUS-
+4       ma-   DIR-
+5      vaa-  CAUS-
+6      vaa-  CAUS-
+7       va-   ADV-
+8      vaa-  CAUS-
+9       va-   ADV-
+10     vaa-  CAUS-
+11      va-   ADV-
+12      va-   ADV-
+13      va-   ADV-
+14      va-  MULT-
+15     vaa-  CAUS-
+16      va-  MULT-
+17     vaa-  CAUS-
+18      va-   ADV-
+19      ta- ACAUS-
+20      va-   ADV-</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate frequency of affix-gloss pairs</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>affix_corpus_freq <span class="ot">&lt;-</span> affixes_glosses_corpus <span class="sc">|&gt;</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(morpheme, gloss, <span class="at">sort =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Display affix frequencies</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>affix_corpus_freq</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    morpheme                 gloss   n
+1         e-                    H- 210
+2       vaa-                 CAUS-  78
+3      sina-               mother-  44
+4        va-                 ADVR-  43
+5        va-                 MULT-  29
+6        ta-                ACAUS-  28
+7      tama-               father-  22
+8      koma-       stomach|inside-  20
+9       moo-                  leg-  13
+10     hena-                 name-  11
+11       va-                  ADV-  10
+12       va-                 CAUS-  10
+13     mata-            eye|front-   8
+14     muta-              husband-   8
+15     subu-                 body-   8
+16     kuri-                 hand-   6
+17     suin-                 body-   6
+18     vihi-                 tail-   6
+19      vaa-                  ORD-   5
+20     kaho-                 kaho-   4
+21     rapa-                 side-   3
+22     Sina-               mother-   2
+23     domo-                chest-   2
+24     mute-                 wife-   2
+25     suin-                 PREP=   2
+26      vaa-                 MULT-   2
+27 vaabuaku-            companion-   2
+28   vavina- sibling.opposite.sex-   2
+29      -ana                 -ADJR   1
+30    gogoo-               throat-   1
+31   govuhu-                crown-   1
+32     hena-                  name   1
+33      ihu-                 nose-   1
+34    kahoo-                 head-   1
+35     koma-               inside-   1
+36       ma-                  DIR-   1
+37      paa-            underside-   1
+38     pusu-                 base-   1
+39     subu-          grandmother-   1
+40     suin-                  body   1
+41       ta-                 CAUS-   1
+42     vunu-                 hair-   1</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Find words that contain both the frequent affix and gloss, remove the target morpheme and gloss, combine</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_corpus <span class="ot">&lt;-</span> word_corpus_df <span class="sc">|&gt;</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(word_id) <span class="sc">|&gt;</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">any</span>(content <span class="sc">==</span> freq_affix) <span class="sc">&amp;</span> <span class="fu">any</span>(content <span class="sc">==</span> freq_gloss)) <span class="sc">|&gt;</span> </span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(content <span class="sc">!=</span> freq_affix, content <span class="sc">!=</span> freq_gloss)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine remaining morphemes and glosses</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_corpus_summary <span class="ot">&lt;-</span> affix_gloss_roots_corpus <span class="sc">|&gt;</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">roots =</span> <span class="fu">paste</span>(content[tier_type <span class="sc">==</span> <span class="st">"mb"</span>], <span class="at">collapse =</span> <span class="st">""</span>),</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">glosses =</span> <span class="fu">paste</span>(content[tier_type <span class="sc">==</span> <span class="st">"gl"</span>], <span class="at">collapse =</span> <span class="st">""</span>)</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> <span class="fu">count</span>(roots, glosses, <span class="at">sort =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_corpus_summary</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 38 × 3
+   roots  glosses      n
+   &lt;chr&gt;  &lt;chr&gt;    &lt;int&gt;
+ 1 sun    stand       10
+ 2 tii    be.there     9
+ 3 hae    board        6
+ 4 tavus  come.out     5
+ 5 kavara finished     4
+ 6 raka   dry          4
+ 7 kuu    fall         3
+ 8 tavusu come.out     3
+ 9 naabu  fear         2
+10 nao    go           2
+# ℹ 28 more rows</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>affix_gloss_roots_corpus_summary <span class="sc">|&gt;</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">reorder</span>(<span class="fu">paste</span>(roots, glosses), n), <span class="at">y =</span> n)) <span class="sc">+</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_discrete</span>(<span class="at">labels =</span> <span class="cf">function</span>(x) <span class="fu">paste0</span>(<span class="st">"*"</span>, <span class="fu">word</span>(x, <span class="dv">1</span>), <span class="st">"*"</span>, <span class="st">" '"</span>, <span class="fu">word</span>(x, <span class="dv">2</span>), <span class="st">"'"</span>)) <span class="sc">+</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fu">max</span>(affix_gloss_roots_corpus_summary<span class="sc">$</span>n), <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Roots"</span>,</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">"Frequency"</span>) <span class="sc">+</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.y =</span> <span class="fu">element_markdown</span>(<span class="at">size =</span> <span class="dv">6</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="0916-morphology_files/figure-html/roots-with-frequent-affix-corpus-freq-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

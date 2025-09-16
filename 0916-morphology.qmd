@@ -1,0 +1,299 @@
+---
+title: "Wrangling ELAN files to investigate morphology"
+format: 
+  html:
+    code-overflow: wrap
+execute:
+  echo: true
+
+---
+
+We will build upon the R code we introduced in the last class [Introduction to working with ELAN files in R in R Studio]() using [`phonfieldwork`](https://docs.ropensci.org/phonfieldwork/) package to import ELAN `.eaf` files.
+
+In this short exercise, we will first read in a single text, locate a fairly frequent affix, then output all of the roots (or bases) that combine with that affix. Then, we will read in the entire ELAN corpus and output all of the roots (or bases) that combine with the same frequent affix. We will then visualize this frequency with a plot.
+
+::: {.callout-caution}
+We have tried to create code that applies broadly to the DoReCo corpora. However, it was not possible to test this code on each individual DoReCo corpus, so there is a chance you may not be able to produce the desired output. If you encounter issues that you are not able to fix, we will try to help you adjust the code. 
+
+If it is becomes too time consuming, we recommend you download the [DoReCo Teop Corpus](https://doreco.huma-num.fr/preview/languages/teop1238) and move it to the same directory (i.e. folder) where this file is located.
+:::
+
+```{r}
+#| label: setup
+#| output: false
+
+# If you do not already have the following packages installed, you will need to install them now. Note that we have added the package ggtext
+
+# install.packages("phonfieldwork")
+# install.packages("tidyverse")
+# install.packages("here")
+# install.packages("ggtext")
+
+# Load required packages for ELAN file processing
+library(phonfieldwork)
+
+# Load for data wrangling
+library(tidyverse)
+
+# Load for consistent file paths
+library(here)
+
+# Load for markdown text formatting in plots
+library(ggtext)
+
+# Define corpus directory
+corpus_dir <- here("doreco_teop1238_core_v2.0")
+```
+
+
+# Working with a single ELAN file
+
+## Importing a text with `phonfieldwork`
+Pick any text in the corpus. We chose `doreco_teop1238_Pur_05.eaf` for our text in the Teop corpus.
+
+```{r}
+#| label: import-text
+#| output: false
+
+# Import a specific ELAN file using phonfieldwork
+text_df <- eaf_to_df(here(corpus_dir, "doreco_teop1238_Pur_05.eaf"))
+
+# View the structure of the imported data
+str(text_df)
+
+# Display the first 20 rows
+head(text_df, 20)
+```
+
+## Creating a word-deliminated data frame for the text
+
+```{r}
+#| label: word-dataframe
+
+# Create word_id that groups consecutive rows belonging to the same word
+word_text_df <- text_df |>
+  filter(tier_type %in% c("wd","mb","gl")) |>
+  mutate(word_id = paste0("w", cumsum(tier_type == "wd")))
+
+# Display word-morpheme-gloss structure
+word_text_df |>
+  select(1:8, last_col()) |>
+  head(26)
+```
+
+
+## Extracting affix gloss pairs with frequency
+```{r}
+#| label: filter-affixes-with-gloss-frequency-text
+
+# Find affixes (e.g. morphemes containing hyphens) and assign to dataframe
+affixes_text <- word_text_df |>
+  filter(tier_type == "mb") |>
+  filter(str_detect(content, "-")) |>
+  select(morpheme_id = event_local_id, morpheme = content)
+
+# Assign glosses to dataframe
+glosses_text <- word_text_df |>
+  filter(tier_type == "gl") |>
+  select(dependent_on, gloss = content)
+
+# Match each morpheme with its specific gloss
+affixes_glosses_text <- affixes_text |>
+  left_join(glosses_text, by = c("morpheme_id" = "dependent_on")) |>
+  select(morpheme, gloss)
+
+# Display affixes with glosses
+head(affixes_glosses_text, 10)
+```
+
+```{r}
+#| label: affix-frequencies-text
+
+# Calculate frequency of affix-gloss pairs
+affix_text_freq <- affixes_glosses_text |>
+  count(morpheme, gloss, sort = TRUE)
+
+# Display affix frequencies
+affix_text_freq
+```
+
+## Extracting the roots that occur with a frequent affix
+One of the most frequent affixes is the causative prefix *vaa-* 'CAUS-', so we will explore how many different roots (or bases) it attaches to. I define this affix below.
+
+```{r}
+#| label: roots-with-frequent-affix-text
+
+# Define the frequent affix
+freq_affix <- "vaa-"
+freq_gloss <- "CAUS-"
+
+# Find words that contain both the frequent affix and gloss defined above, remove the target morpheme and gloss, combine
+affix_gloss_roots_text <- word_text_df |>
+  # Find words that contain both the frequent affix and its gloss
+  group_by(word_id) |>
+  filter(any(content == freq_affix) & any(content == freq_gloss))
+
+# Summarize remaining morphemes and glosses
+affix_gloss_roots_text_summary <- affix_gloss_roots_text |>
+  summarise(
+    all_morphemes = paste(content[tier_type == "mb"], collapse = ""),
+    all_glosses = paste(content[tier_type == "gl"], collapse = "")
+  )
+
+# Inspect the summary that contains the affix and gloss
+affix_gloss_roots_text_summary
+
+# Remove the affix and gloss so that only roots are listed
+affix_gloss_roots_only_text <- affix_gloss_roots_text |>
+  filter(content != freq_affix, content != freq_gloss)
+
+# Summarize the morphemes and glosses as well as their frequencies 
+affix_gloss_roots_only_text_summary <- affix_gloss_roots_only_text |>
+  summarise(
+    roots = paste(content[tier_type == "mb"], collapse = ""),
+    glosses = paste(content[tier_type == "gl"], collapse = "")
+  ) |> count(roots, glosses, sort = TRUE)
+
+# Inspect the summary
+affix_gloss_roots_only_text_summary
+```
+
+
+# Working with an ELAN corpus
+Now let's look at the same affix in the corpus. 
+
+## Importing a corpus with `phonfieldwork`
+
+```{r}
+#| label: import-elan-files
+
+# Find all ELAN files in the corpus directory
+corpus_files <- list.files(corpus_dir, 
+                        pattern = "\\.eaf$", 
+                        full.names = TRUE)
+
+# Read all ELAN files into a single dataframe
+corpus <- corpus_files |>
+  map_dfr(eaf_to_df, .id = "file")
+
+# Filter the corpus for core morphosyntactic tier types
+corpus_df <- corpus |>
+  filter(tier_type %in% c("ref", "tx", "ft", "wd", "mb", "gl"))
+```
+
+
+## Creating a word-deliminated data frame for the corpus
+
+```{r}
+#| label: word-corpus-dataframe
+
+# Create word_id that groups consecutive rows belonging to the same word
+word_corpus_df <- corpus_df |>
+  filter(tier_type %in% c("wd","mb","gl")) |>
+  mutate(word_id = paste0("w", cumsum(tier_type == "wd")))
+
+# Display word-morpheme-gloss structure
+word_corpus_df |>
+  select(1:8, last_col()) |>
+  head(50)
+```
+
+
+## Extracting affix gloss pairs with frequency
+```{r}
+#| label: filter-affixes-with-gloss-frequency-corpus
+
+# Find affixes (e.g. morphemes containing hyphens) and assign to dataframe
+affixes_corpus <- word_corpus_df |>
+  filter(tier_type == "mb") |>
+  filter(str_detect(content, "-")) |>
+  select(file, morpheme_id = event_local_id, morpheme = content)
+
+# Assign glosses to dataframe
+glosses_corpus <- word_corpus_df |>
+  filter(tier_type == "gl") |>
+  select(file, dependent_on, gloss = content)
+
+# Match each morpheme with its specific gloss (within the same file)
+affixes_glosses_corpus <- affixes_corpus |>
+  left_join(glosses_corpus, by = c("file" = "file", "morpheme_id" = "dependent_on")) |>
+  select(morpheme, gloss)
+
+# Display affixes with glosses
+head(affixes_glosses_corpus, 20)
+```
+
+```{r}
+#| label: affix-frequencies-corpus
+
+# Calculate frequency of affix-gloss pairs
+affix_corpus_freq <- affixes_glosses_corpus |>
+  count(morpheme, gloss, sort = TRUE)
+
+# Display affix frequencies
+affix_corpus_freq
+```
+
+```{r}
+#| label: roots-with-frequent-affix-corpus
+
+# Find words that contain both the frequent affix and gloss, remove the target morpheme and gloss, combine
+affix_gloss_roots_corpus <- word_corpus_df |>
+  group_by(word_id) |>
+  filter(any(content == freq_affix) & any(content == freq_gloss)) |> 
+  filter(content != freq_affix, content != freq_gloss)
+
+# Combine remaining morphemes and glosses
+affix_gloss_roots_corpus_summary <- affix_gloss_roots_corpus |>
+  summarise(
+    roots = paste(content[tier_type == "mb"], collapse = ""),
+    glosses = paste(content[tier_type == "gl"], collapse = "")
+  ) |> count(roots, glosses, sort = TRUE)
+
+affix_gloss_roots_corpus_summary
+```
+
+
+```{r}
+#| label: roots-with-frequent-affix-corpus-freq-plot
+
+affix_gloss_roots_corpus_summary |>
+  ggplot(aes(x = reorder(paste(roots, glosses), n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  scale_x_discrete(labels = function(x) paste0("*", word(x, 1), "*", " '", word(x, 2), "'")) +
+  scale_y_continuous(breaks = seq(0, max(affix_gloss_roots_corpus_summary$n), by = 1)) +
+  labs(x = "Roots",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(axis.text.y = element_markdown(size = 6))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
