@@ -8,7 +8,7 @@ execute:
 
 ---
 
-We will build upon the R code we introduced in the last class [Introduction to working with ELAN files in R in R Studio]() using [`phonfieldwork`](https://docs.ropensci.org/phonfieldwork/) package to import ELAN `.eaf` files.
+We will build upon the R code we introduced in the last class [Introduction to working with ELAN files in R in R Studio](https://mcdonn.github.io/2025-750g-corpus/0911-introduction-elan-r.html) using [`phonfieldwork`](https://docs.ropensci.org/phonfieldwork/) package to import ELAN `.eaf` files.
 
 In this short exercise, we will first read in a single text, locate a fairly frequent affix, then output all of the roots (or bases) that combine with that affix. Then, we will read in the entire ELAN corpus and output all of the roots (or bases) that combine with the same frequent affix. We will then visualize this frequency with a plot.
 
