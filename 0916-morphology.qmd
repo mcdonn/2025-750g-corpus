@@ -190,7 +190,9 @@ corpus_df <- corpus |>
 # Create word_id that groups consecutive rows belonging to the same word
 word_corpus_df <- corpus_df |>
   filter(tier_type %in% c("wd","mb","gl")) |>
-  mutate(word_id = paste0("w", cumsum(tier_type == "wd")))
+  mutate(word_id = paste0("w", cumsum(tier_type == "wd"))) |>
+  group_by(word_id) |>
+  arrange(event_local_id, .by_group = TRUE)
 
 # Display word-morpheme-gloss structure
 word_corpus_df |>
