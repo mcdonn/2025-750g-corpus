@@ -207,12 +207,14 @@ word_corpus_df |>
 
 # Find affixes (e.g. morphemes containing hyphens) and assign to dataframe
 affixes_corpus <- word_corpus_df |>
+  ungroup() |>
   filter(tier_type == "mb") |>
   filter(str_detect(content, "-")) |>
   select(file, morpheme_id = event_local_id, morpheme = content)
 
 # Assign glosses to dataframe
 glosses_corpus <- word_corpus_df |>
+  ungroup() |>
   filter(tier_type == "gl") |>
   select(file, dependent_on, gloss = content)
 
@@ -238,6 +240,7 @@ affix_corpus_freq
 
 ```{r}
 #| label: roots-with-frequent-affix-corpus
+#| message: false
 
 # Find words that contain both the frequent affix and gloss, remove the target morpheme and gloss, combine
 affix_gloss_roots_corpus <- word_corpus_df |>
